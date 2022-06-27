@@ -1,0 +1,133 @@
+﻿@page "/test2"
+@using Blazor.Cropper
+
+<PageTitle>Index</PageTitle>
+
+@inject IJSRuntime JSRuntime;
+
+<h1>Cropper</h1>
+<InputFile id="input1" OnChange="OnInputFileChange"></InputFile>
+@if (parsing)
+{
+    <center>
+        <h2>@prompt</h2>
+    </center>
+}
+<center>
+    <h2>Crop Result:</h2>
+    <img id="my-img" />
+</center>
+@if (file != null)
+{
+    <div class="modal is-active">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Modal title</p>
+                <button class="delete" aria-label="close" @onclick="()=>file=null"></button>
+            </header>
+            <section class="modal-card-body" style="overflow-x: hidden">
+                @if (show)
+                {
+                    <SubClassCropper MaxCropedHeight="500" CropperHeight="400" MaxCropedWidth="500" @ref="cropper" AspectRatio="proportion==0?1:proportion"
+                         RequireAspectRatio="bool.Parse(enableProportion)" InputId="input1" ImageFile="file" @bind-Ratio="ratio"
+                         AnimeGifEnable="true"
+                         OffsetX="offsetx"
+                         OffsetY="offsety"
+                         InitCropWidth="initw"
+                         InitCropHeight="inith"
+                         PureCSharpProcessing="true"
+                         IsCropLocked="isCropLocked"
+                         IsImageLocked="isImageLocked"
+                         OnSizeChanged="t=>{
+                        width = t.Item1;
+                        height = t.Item2;
+                    }"></SubClassCropper>   
+                }
+            </section>
+            <footer class="modal-card-foot">
+                <div>
+                <button class="button is-success" @onclick="DoneCrop">Done</button>
+                <br/>
+                @if (cropper != null)
+                {
+                    <div>
+                        width: @width |
+                        height: @height
+                    </div>
+                }
+                <div> IsCropLocked:<input type="checkbox" @bind="isCropLocked" /></div>
+                <div>IsImageLocked:<input type="checkbox" @bind="isImageLocked" /></div>
+                @if (cropper != null)
+                {
+                    <input type="range" min="@(cropper.MinRatio*100)" max="@(200)" value="@(ratio*100)"
+                           @oninput="OnRatioChange" />
+                }
+                </div>
+            </footer>
+        </div>
+    </div>
+}
+else
+{
+    offsetx = 0;
+    offsety = 0;
+    initw = 50;
+    inith = 50;
+}
+<br />
+<select @bind-value="enableProportion" @bind-value:event="onchange">
+    <option value="true">Enable proportion</option>
+    <option value="false">Disable proportion</option>
+</select>
+@if (bool.Parse(enableProportion))
+{
+    <input type="number" @bind-value="proportion" placeholder="proportion" />
+}
+
+@code {
+    Cropper cropper;
+    IBrowserFile file;
+    double width;
+    double height;
+    string imgUrl = "";
+    bool show = true;
+    string prompt = "Image cropped! Parsing to base64...";
+    bool parsing = false;
+    string enableProportion = "false";
+    double proportion = 1d;
+    double ratio = 1;
+    bool isCropLocked = false;
+    bool isImageLocked = false;
+    int offsetx, offsety;
+    int initw = 50;
+    int inith = 50;
+
+    void OnRatioChange(ChangeEventArgs args)
+    {
+        ratio = int.Parse(args.Value.ToString()) / 100.0;
+    }
+
+    async Task OnInputFileChange(InputFileChangeEventArgs args)
+    {
+        await JSRuntime.InvokeVoidAsync("console.log", DateTime.Now.ToString());
+        file = args.File;
+    }
+
+    async Task DoneCrop()
+    {
+        var args = await cropper.GetCropedResult();
+        file = null;
+        parsing = true;
+        base.StateHasChanged();
+        await Task.Delay(10);// a hack, otherwise prompt won't show
+        await JSRuntime.InvokeVoidAsync("console.log", "converted!");
+        var bs = await args.GetDataAsync();
+        await JSRuntime.SetImageAsync(bs, "my-img");
+        parsing = false;
+    }
+}
+
+<style>
+    @@import url("https://fastly.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css");
+</style>
